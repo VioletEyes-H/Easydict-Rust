@@ -1,0 +1,76 @@
+const deeplLangMap = {
+  auto: 'auto',
+  zh: 'zh',
+  en: 'en',
+  ja: 'ja',
+  ko: 'ko',
+  fr: 'fr',
+  es: 'es',
+  pt: 'pt',
+  it: 'it',
+  de: 'de',
+  ru: 'ru',
+  sv: 'sv',
+  ro: 'ro',
+  sk: 'sk',
+  nl: 'nl',
+  hu: 'hu',
+  el: 'el',
+  da: 'da',
+  fi: 'fi',
+  pl: 'pl',
+  cs: 'cs',
+  tr: 'tr',
+  lt: 'lt',
+  lv: 'lv',
+  uk: 'uk',
+  bg: 'bg',
+  id: 'id',
+  sl: 'sl',
+  et: 'et',
+  nb: 'nb',
+  ar: 'ar',
+}
+
+// DeepL target language codes have regional variants
+const deeplTargetLangMap = {
+  auto: 'auto',
+  zh: 'zh-hans',
+  en: 'en',
+  ja: 'ja',
+  ko: 'ko',
+  fr: 'fr',
+  es: 'es',
+  pt: 'pt-PT',
+  it: 'it',
+  de: 'de',
+  ru: 'ru',
+  sv: 'sv',
+  ro: 'ro',
+  sk: 'sk',
+  nl: 'nl',
+  hu: 'hu',
+  el: 'el',
+  da: 'da',
+  fi: 'fi',
+  pl: 'pl',
+  cs: 'cs',
+  tr: 'tr',
+  lt: 'lt',
+  lv: 'lv',
+  uk: 'uk',
+  bg: 'bg',
+  id: 'id',
+  sl: 'sl',
+  et: 'et',
+  nb: 'nb',
+  ar: 'ar',
+}
+
+export function toDeepLSourceLang(lang) {
+  return deeplLangMap[lang] || 'auto'
+}
+
+export function toDeepLTargetLang(lang) {
+  return deeplTargetLangMap[lang] || 'zh-hans'
+}
