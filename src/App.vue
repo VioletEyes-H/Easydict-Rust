@@ -9,6 +9,7 @@ import {getCurrentWindow} from "@tauri-apps/api/window";
 import {router} from "./router";
 import {useThemeStore} from "./stores/theme";
 import {useServicesStore} from "./stores/services";
+import {useShortcutsStore} from "./stores/shortcuts";
 import {onMounted} from "vue";
 import {defaultServices} from "@/views/services/index.js";
 
@@ -18,6 +19,8 @@ router.isReady().then(() => {
   getCurrentWindow().show();
 });
 
+
+useShortcutsStore();
 
 const serviceStore = useServicesStore();
 onMounted(() => {

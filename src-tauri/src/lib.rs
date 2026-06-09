@@ -1,4 +1,5 @@
 mod http;
+mod shortcut;
 
 use tracing::{debug, error, info, warn};
 use tauri::menu::{Menu, MenuItem};
@@ -17,6 +18,18 @@ fn log_message(level: String, message: String) {
     }
 }
 
+#[tauri::command]
+fn show_main_window(app: tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        if window.is_visible().unwrap_or(false) {
+            let _ = window.hide();
+        } else {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt::init();
@@ -24,6 +37,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(shortcut::create_plugin())
         .setup(|app| {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
@@ -114,7 +128,14 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![log_message, http::http_get, http::http_post, http::play_system_tts, http::play_audio_stream])
+        .invoke_handler(tauri::generate_handler![
+            log_message,
+            show_main_window,
+            http::http_get,
+            http::http_post,
+            http::play_system_tts,
+            http::play_audio_stream,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

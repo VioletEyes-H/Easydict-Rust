@@ -58,6 +58,7 @@ const generalSettings = ref({
 
 .card-header {
   padding-left: 8px;
+  font-weight: 600;
 }
 
 .form-item{

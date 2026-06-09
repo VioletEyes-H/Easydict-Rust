@@ -29,4 +29,5 @@ objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["objc2-quartz-core"] }
 reqwest = { version = "0.12", features = ["json"] }
 rodio = "0.19"
+tauri-plugin-global-shortcut = "2"
 
