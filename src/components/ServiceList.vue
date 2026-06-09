@@ -2,6 +2,7 @@
   <a-collapse class="service-list"
               :bordered="false"
               expandIconPosition="end"
+              :ghost="true"
               :activeKey="activeKeys"
               @change="onCollapseChange">
     <a-collapse-panel v-for="service in services" :key="service.id" :force-render="true">
@@ -81,11 +82,6 @@ function onCollapseChange(keys) {
   gap: 8px;
 }
 
-:deep(.ant-collapse) {
-  background: transparent;
-  border: none;
-}
-
 :deep(.ant-collapse-item) {
   border: none;
   border-radius: 10px;
@@ -101,16 +97,6 @@ function onCollapseChange(keys) {
 :deep(.ant-collapse-header) {
   padding: 4px 12px !important;
   align-items: center !important;
-}
-
-:deep(.ant-collapse-content) {
-  background: transparent;
-  border-top: 1px solid var(--color-border-secondary);
-}
-
-:deep(.ant-collapse-expand-icon) {
-  color: var(--color-text-tertiary);
-  font-size: 12px;
 }
 
 .service-header {
@@ -151,13 +137,5 @@ function onCollapseChange(keys) {
   background-color: var(--color-hover-light);
   padding: 2px 8px;
   border-radius: 4px;
-}
-</style>
-
-<style>
-.service-list .ant-collapse-content-box {
-  padding: 8px 12px !important;
-  color: var(--color-text-primary) !important;
-  font-size: 13px !important;
 }
 </style>
