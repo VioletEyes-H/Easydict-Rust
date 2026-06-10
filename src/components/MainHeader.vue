@@ -1,10 +1,10 @@
 <template>
   <!-- 顶部栏 -->
   <div class="top-bar" @mousedown="startDrag">
-    <div class="icon-btn" v-if="isAlwaysOnTop" @click="toggleAlwaysOnTop">
+    <div class="icon-btn" v-if="appShortcuts.pinned" @click="appShortcuts.togglePin">
       <PushpinFilled style="color: rgb(23, 126, 246)" :rotate="280"/>
     </div>
-    <div class="icon-btn" v-else @click="toggleAlwaysOnTop">
+    <div class="icon-btn" v-else @click="appShortcuts.togglePin">
       <PushpinOutlined :rotate="314"/>
     </div>
     <div class="icon-btn" @click="openSettings">
@@ -14,19 +14,14 @@
 </template>
 
 <script setup>
-import {ref} from "vue";
 import {PushpinOutlined, SettingOutlined, PushpinFilled} from "@ant-design/icons-vue";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import {WebviewWindow} from "@tauri-apps/api/webviewWindow";
 import {SETTINGS_WINDOW_OPTIONS} from "../utils/windowConfig";
+import {useAppShortcutsStore} from "@/stores/appShortcuts";
 
-const isAlwaysOnTop = ref(false);
+const appShortcuts = useAppShortcutsStore();
 const SETTINGS_LABEL = "settings"
-
-function toggleAlwaysOnTop() {
-  isAlwaysOnTop.value = !isAlwaysOnTop.value;
-  getCurrentWindow().setAlwaysOnTop(isAlwaysOnTop.value);
-}
 
 function startDrag(event) {
   // 阻止默认行为，防止文本选择等

@@ -18,7 +18,7 @@
               <CloseCircleFilled v-if="displayShortcuts.inputTranslate && recordingName === 'inputTranslate'"
                                  class="clear-icon"
                                  style="font-size: 10px"
-                                 @mousedown.prevent="clearShortcuts('inputTranslate')"/>
+                                 @mousedown.prevent="clearShortcut('inputTranslate')"/>
             </template>
           </a-input>
         </div>
@@ -38,25 +38,28 @@
     <div class="card-container">
       <div class="card-header">应用内快捷键</div>
       <a-card :body-style="{padding:'12px'}">
-        <div class="form-item">
-          <div>清空查询内容</div>
-          <a-input size="small" style="width: 140px" placeholder="暂未实现" disabled/>
-        </div>
-        <a-divider style="margin: 8px 0"/>
-        <div class="form-item">
-          <div>播放发音</div>
-          <a-input size="small" style="width: 140px" placeholder="暂未实现" disabled/>
-        </div>
-        <a-divider style="margin: 8px 0"/>
-        <div class="form-item">
-          <div>重试</div>
-          <a-input size="small" style="width: 140px" placeholder="暂未实现" disabled/>
-        </div>
-        <a-divider style="margin: 8px 0"/>
-        <div class="form-item">
-          <div>钉住窗口</div>
-          <a-input size="small" style="width: 140px" placeholder="暂未实现" disabled/>
-        </div>
+        <template v-for="(item, index) in appItems" :key="item.name">
+          <a-divider v-if="index > 0" style="margin: 8px 0"/>
+          <div class="form-item">
+            <div>{{ item.label }}</div>
+            <a-input
+                size="small"
+                style="width: 140px"
+                :value="displayShortcuts[item.name]"
+                :placeholder="recordingName === item.name ? '请按下快捷键...' : '点击录制快捷键'"
+                :class="{ recording: recordingName === item.name }"
+                @focus="startRecording(item.name, $event)"
+                @blur="stopRecording"
+                readonly>
+              <template #suffix>
+                <CloseCircleFilled v-if="displayShortcuts[item.name] && recordingName === item.name"
+                                   class="clear-icon"
+                                   style="font-size: 10px"
+                                   @mousedown.prevent="clearShortcut(item.name)"/>
+              </template>
+            </a-input>
+          </div>
+        </template>
       </a-card>
     </div>
   </div>
@@ -64,15 +67,34 @@
 
 <script setup>
 import {computed, ref} from "vue";
+import {message} from "ant-design-vue";
 import {CloseCircleFilled} from "@ant-design/icons-vue";
 import {useShortcutsStore} from "@/stores/shortcuts";
+import {useAppShortcutsStore} from "@/stores/appShortcuts";
+import {buildAccelerator, hasModifier, sameAccelerator, toDisplay} from "@/utils/accelerator";
 
 const store = useShortcutsStore();
+const appStore = useAppShortcutsStore();
 const recordingName = ref(null);
 
-const displayShortcuts = computed(() => ({
-  inputTranslate: store.shortcuts.inputTranslate ? store.toDisplay(store.shortcuts.inputTranslate) : "",
-}));
+const appItems = [
+  {name: "clearInput", label: "清空查询内容"},
+  {name: "playTTS", label: "播放发音"},
+  {name: "retry", label: "重试"},
+  {name: "pinWindow", label: "钉住窗口"},
+];
+
+// 全局快捷键名集合，用于区分写入哪个 store
+const GLOBAL_NAMES = new Set(["inputTranslate"]);
+
+const displayShortcuts = computed(() => {
+  const result = {};
+  result.inputTranslate = toDisplay(store.shortcuts.inputTranslate);
+  for (const {name} of appItems) {
+    result[name] = toDisplay(appStore.shortcuts[name]);
+  }
+  return result;
+});
 
 function startRecording(name, event) {
   recordingName.value = name;
@@ -84,20 +106,20 @@ function stopRecording(event) {
   recordingName.value = null;
 }
 
-const isMac = /mac/i.test(navigator.userAgent);
+// 收集除当前录制项外的所有已设置快捷键，用于冲突检测
+function collectOthers(currentName) {
+  const all = {...store.shortcuts, ...appStore.shortcuts};
+  delete all[currentName];
+  return all;
+}
 
-const KEY_MAP = {
-  Enter: "Return",
-  Escape: "Escape",
-  Backspace: "Backspace",
-  Delete: "Delete",
-  Tab: "Tab",
-  Space: "Space",
-  ArrowUp: "Up",
-  ArrowDown: "Down",
-  ArrowLeft: "Left",
-  ArrowRight: "Right",
-};
+function commit(name, accelerator) {
+  if (GLOBAL_NAMES.has(name)) {
+    store.updateShortcut(name, accelerator);
+  } else {
+    appStore.updateShortcut(name, accelerator);
+  }
+}
 
 function onKeyDown(e) {
   e.preventDefault();
@@ -109,41 +131,31 @@ function onKeyDown(e) {
     return;
   }
 
-  // 忽略单独按修饰键
-  if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) return;
+  const accelerator = buildAccelerator(e);
+  // 仅按下修饰键，继续等待主键
+  if (!accelerator) return;
 
-  const parts = [];
-
-  // macOS 上 Meta 键 (Command) 映射为 CmdOrCtrl
-  // Windows/Linux 上 Ctrl 键映射为 CmdOrCtrl
-  if (isMac) {
-    if (e.metaKey) parts.push("CmdOrCtrl");
-    if (e.ctrlKey) parts.push("Ctrl");
-  } else {
-    if (e.ctrlKey) parts.push("CmdOrCtrl");
+  // 必须包含修饰键
+  if (!hasModifier(accelerator)) {
+    message.warning("快捷键需包含 Ctrl / Cmd / Alt 等修饰键");
+    return;
   }
 
-  if (e.shiftKey) parts.push("Shift");
-  if (e.altKey) parts.push("Alt");
-
-  let key;
-  if (KEY_MAP[e.key]) {
-    key = KEY_MAP[e.key];
-  } else if (e.key.length === 1) {
-    key = e.key.toUpperCase();
-  } else {
-    key = e.code.replace("Key", "").replace("Digit", "");
+  // 与其他已设置项（应用内或全局）冲突时拒绝
+  const others = collectOthers(recordingName.value);
+  const conflict = Object.values(others).some((v) => sameAccelerator(v, accelerator));
+  if (conflict) {
+    message.error("该快捷键已被占用");
+    return;
   }
-  parts.push(key);
 
-  store.updateShortcut(recordingName.value, parts.join("+"));
-  recordingName.value = null;
+  commit(recordingName.value, accelerator);
   e.target.blur();
 }
 
-const clearShortcuts = (name) => {
-  store.updateShortcut(name, "");
-}
+const clearShortcut = (name) => {
+  commit(name, "");
+};
 </script>
 
 <style scoped>

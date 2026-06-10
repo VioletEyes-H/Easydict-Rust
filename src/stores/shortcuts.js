@@ -1,45 +1,18 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
+import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
+import { emit, listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { toDisplay } from "@/utils/accelerator";
 
 const STORAGE_KEY = "shortcuts";
 const DEFAULT_SHORTCUTS = {
   inputTranslate: "CmdOrCtrl+Shift+T",
 };
 
-const isMac = /mac/i.test(navigator.userAgent);
-
-// 平台相关的修饰键显示映射
-const MODIFIER_DISPLAY = {
-  CmdOrCtrl: isMac ? "⌘" : "Ctrl",
-  CommandOrControl: isMac ? "⌘" : "Ctrl",
-  Cmd: isMac ? "⌘" : "Ctrl",
-  Command: isMac ? "⌘" : "Ctrl",
-  Super: isMac ? "⌘" : "Win",
-  Meta: isMac ? "⌘" : "Win",
-  Ctrl: isMac ? "⌃" : "Ctrl",
-  Control: isMac ? "⌃" : "Ctrl",
-  Shift: "⇧",
-  Alt: isMac ? "⌥" : "Alt",
-  Option: isMac ? "⌥" : "Alt",
-};
-
-function toDisplay(accelerator) {
-  if (!accelerator) return "";
-
-  const parts = accelerator.split("+");
-  const displayParts = parts.map((part) => {
-    // 检查是否是修饰键
-    if (MODIFIER_DISPLAY[part]) {
-      return MODIFIER_DISPLAY[part];
-    }
-    // 普通按键直接显示
-    return part;
-  });
-
-  return displayParts.join(" + ");
-}
+// 全局快捷键由 main 窗口单一拥有注册；settings 窗口仅改存储并广播
+const isMain = getCurrentWindow().label === "main";
 
 // 将前端格式的快捷键转换为插件格式
 function toPluginAccelerator(accelerator) {
@@ -55,43 +28,11 @@ export const useShortcutsStore = defineStore("shortcuts", () => {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
   const shortcuts = ref({ ...DEFAULT_SHORTCUTS, ...saved });
 
-  // 存储当前注册的快捷键，用于取消注册
-  const registeredShortcuts = ref({});
-
-  async function updateShortcut(name, newValue) {
-    const oldValue = shortcuts.value[name];
-
-    // 先取消注册旧的快捷键
-    if (oldValue && registeredShortcuts.value[name]) {
-      try {
-        const pluginAccelerator = toPluginAccelerator(oldValue);
-        await unregister(pluginAccelerator);
-        delete registeredShortcuts.value[name];
-      } catch (e) {
-        // 忽略取消注册错误，可能尚未注册
-        console.warn("Failed to unregister old shortcut:", e);
-      }
-    }
-
-    // 注册新的快捷键
-    if (newValue) {
-      try {
-        const pluginAccelerator = toPluginAccelerator(newValue);
-        await register(pluginAccelerator, (event) => {
-          if (event.state === "Pressed") {
-            handleShortcutAction(name);
-          }
-        });
-        registeredShortcuts.value[name] = newValue;
-      } catch (e) {
-        console.error("Failed to register shortcut:", e);
-        return;
-      }
-    }
-
-    // 注册成功后再更新存储
-    shortcuts.value[name] = newValue;
+  // 改存储并广播，由 main 窗口据此重新注册（不在本窗口直接 register）
+  function updateShortcut(name, value) {
+    shortcuts.value[name] = value;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(shortcuts.value));
+    emit("shortcuts-changed", shortcuts.value);
   }
 
   function handleShortcutAction(name) {
@@ -108,9 +49,11 @@ export const useShortcutsStore = defineStore("shortcuts", () => {
     }
   }
 
-  // 初始化：并行注册所有已保存的快捷键
-  async function initShortcuts() {
-    const entries = Object.entries(shortcuts.value).filter(([, a]) => a);
+  // 幂等地将期望的快捷键应用到系统（仅 main 窗口调用）
+  async function applyShortcuts(desired) {
+    // 本 store 是应用内唯一的全局快捷键注册点，故可安全清空全部后整体重注册
+    await unregisterAll();
+    const entries = Object.entries(desired).filter(([, a]) => a);
     await Promise.allSettled(
       entries.map(async ([name, accelerator]) => {
         try {
@@ -120,16 +63,21 @@ export const useShortcutsStore = defineStore("shortcuts", () => {
               handleShortcutAction(name);
             }
           });
-          registeredShortcuts.value[name] = accelerator;
         } catch (e) {
-          console.error(`Failed to initialize shortcut ${name}:`, e);
+          console.error(`Failed to register shortcut ${name}:`, e);
         }
       })
     );
   }
 
-  // 调用初始化
-  initShortcuts().catch(console.error);
+  // 仅 main 窗口拥有注册：启动时应用，并监听其他窗口的变更
+  if (isMain) {
+    applyShortcuts(shortcuts.value).catch(console.error);
+    listen("shortcuts-changed", (event) => {
+      shortcuts.value = { ...event.payload };
+      applyShortcuts(shortcuts.value).catch(console.error);
+    });
+  }
 
   return {
     shortcuts,

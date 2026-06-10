@@ -66,6 +66,9 @@ import copyRaw from "@/assets/services/copy.svg?raw";
 import {playYoudaoTTS} from '@/utils/tts.js'
 import {detectLanguage} from '@/utils/langDetect.js'
 import {getLangName} from '@/constants/lang.js'
+import {useAppShortcutsStore} from "@/stores/appShortcuts";
+
+const appShortcuts = useAppShortcutsStore();
 
 function processSvg(raw) {
   return raw
@@ -168,16 +171,37 @@ onMounted(async () => {
     new ResizeObserver(() => fitWindowHeight()).observe(appRef.value);
   }
 
-  // 监听窗口焦点变化，失焦时隐藏窗口
+  // 监听窗口焦点变化，失焦时隐藏窗口（钉住时不隐藏）
   unlistenFocus = await appWindow.onFocusChanged(async ({payload: focused}) => {
-    if (!focused) {
-      const isAlwaysOnTop = await appWindow.isAlwaysOnTop();
-      if (!isAlwaysOnTop) {
-        await appWindow.hide();
-      }
+    if (!focused && !appShortcuts.pinned) {
+      await appWindow.hide();
     }
   });
+
+  // 应用内快捷键：capture 阶段拦截，输入框聚焦时也生效
+  window.addEventListener("keydown", onAppShortcut, true);
 });
+
+function onAppShortcut(e) {
+  const name = appShortcuts.matchAction(e);
+  if (!name) return;
+  e.preventDefault();
+  e.stopPropagation();
+  switch (name) {
+    case "clearInput":
+      clearInput();
+      break;
+    case "playTTS":
+      playTTS();
+      break;
+    case "retry":
+      translateTrigger.value++;
+      break;
+    case "pinWindow":
+      appShortcuts.togglePin();
+      break;
+  }
+}
 
 const playTTS = async () => {
   const lang = sourceLang.value === 'auto' ? (detectedLang.value || 'zh') : sourceLang.value;
@@ -189,6 +213,7 @@ onUnmounted(() => {
   if (unlistenFocus) {
     unlistenFocus();
   }
+  window.removeEventListener("keydown", onAppShortcut, true);
 });
 </script>
 
