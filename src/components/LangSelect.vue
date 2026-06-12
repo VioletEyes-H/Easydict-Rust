@@ -30,7 +30,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(["update:modelValue"]);
+const emit = defineEmits(["update:modelValue", "change"]);
 
 const selected = computed({
   get: () => props.modelValue,
@@ -38,7 +38,7 @@ const selected = computed({
 });
 
 const handleChange = (value) => {
-  emit("update:modelValue", value);
+  emit("change", value);
 };
 
 const filterOption = (input, option) => {
@@ -46,15 +46,15 @@ const filterOption = (input, option) => {
 };
 
 const ALL_LANGUAGES = LANGUAGES
-  .filter(l => l.code !== 'auto')
-  .map(l => ({value: l.code, label: `${l.flag} ${l.name}`, flag: l.flag}));
+    .filter(l => l.code !== 'auto')
+    .map(l => ({value: l.code, label: `${l.flag} ${l.name}`, flag: l.flag}));
 
 const langOptions = computed(() => {
   if (props.auto) {
     // 根据检测到的语言动态生成 auto 选项的图标
     const detectedFlag = props.detectedLang
-      ? ALL_LANGUAGES.find(l => l.value === props.detectedLang)?.flag || '🌐'
-      : '🌐';
+        ? ALL_LANGUAGES.find(l => l.value === props.detectedLang)?.flag || '🌐'
+        : '🌐';
     const auto = [{value: "auto", label: `${detectedFlag} 自动检测`, flag: detectedFlag}]
     return [...auto, ...ALL_LANGUAGES]
   }

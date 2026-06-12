@@ -33,13 +33,13 @@
       <div class="lang-bar">
         <div style="flex: 1;text-align: center">
           <lang-select style="width: 160px" v-model="sourceLang" :detectedLang="detectedLang" auto
-                       :container="appRef"/>
+                       :container="appRef" @change="()=>translateTrigger++"/>
         </div>
         <div class="icon-btn" @click="swapLangs">
           <SwapOutlined/>
         </div>
         <div style="flex: 1;text-align: center">
-          <lang-select style="width: 160px" v-model="targetLang" :container="appRef"/>
+          <lang-select style="width: 160px" v-model="targetLang" :container="appRef" @change="()=>translateTrigger++"/>
         </div>
       </div>
 

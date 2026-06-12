@@ -56,11 +56,7 @@ watch(() => props.loading, (newVal, oldVal) => {
   }
 })
 
-watch([() => props.sourceLang, () => props.targetLang], () => {
-  if (props.type === 'view') {
-    translate()
-  }
-})
+// 语言变化时不再自动翻译，只通过 translateTrigger（回车键）触发
 
 if (translateTrigger) {
   watch(translateTrigger, () => {

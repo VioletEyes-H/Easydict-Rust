@@ -59,7 +59,7 @@ provide('onServiceComplete', (serviceId) => {
   loading.value[serviceId] = false
 })
 
-watch([translateTrigger, () => props.sourceLang, () => props.targetLang], () => {
+watch(translateTrigger, () => {
   activeKeys.value = []
   if (!props.input) return
 
