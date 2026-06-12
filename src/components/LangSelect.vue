@@ -4,6 +4,7 @@
             :bordered="false"
             :filterOption="filterOption"
             :dropdownMatchSelectWidth="false"
+            :get-popup-container="()=>container"
             class="select"
             @change="handleChange">
   </a-select>
@@ -22,6 +23,10 @@ const props = defineProps({
   auto: {
     type: Boolean,
     default: false
+  },
+  container: {
+    type: Object,
+    default: () => document.body
   }
 });
 

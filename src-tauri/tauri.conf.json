@@ -14,7 +14,9 @@
       {
         "title": "translate-tauri",
         "width": 600,
+        "height": 900,
         "minWidth": 360,
+        "minHeight": 900,
         "decorations": false,
         "transparent": true,
         "acceptFirstMouse": true,

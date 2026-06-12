@@ -1,6 +1,8 @@
 <template>
   <a-config-provider :theme="themeStore.antdConfig">
-    <router-view/>
+    <div style="height: fit-content">
+      <router-view/>
+    </div>
   </a-config-provider>
 </template>
 
@@ -14,11 +16,11 @@ import {onMounted} from "vue";
 import {defaultServices} from "@/views/services/index.js";
 
 const themeStore = useThemeStore();
+const appWindow = getCurrentWindow();
 
 router.isReady().then(() => {
-  getCurrentWindow().show();
+  appWindow.show();
 });
-
 
 useShortcutsStore();
 
@@ -33,13 +35,16 @@ onMounted(() => {
 </script>
 
 <style>
+html, body, #app {
+  background: transparent;
+}
+
 :root {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   font-size: 16px;
   line-height: 24px;
   font-weight: 400;
   color: var(--color-text-primary);
-  background-color: var(--color-bg-primary);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
