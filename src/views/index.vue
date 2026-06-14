@@ -1,5 +1,5 @@
 <template>
-  <div ref="appRef" class="app" @mouseenter="onContentEnter" @mouseleave="onContentLeave">
+  <div ref="appRef" class="app">
     <main-header/>
 
     <div class="container">
@@ -23,8 +23,8 @@
           <div class="detected-lang" v-if="detectedLang">
             识别为 <span style="color: #177df7">{{ getLangName(detectedLang) }}</span>
           </div>
-          <div class="icon-btn" style="margin-left: auto;" v-if="inputText">
-            <CloseCircleOutlined @click="clearInput" style="font-size: 16px"/>
+          <div class="icon-btn" style="margin-left: auto;" v-if="inputText" @click="clearInput">
+            <CloseCircleOutlined style="font-size: 16px"/>
           </div>
         </div>
       </div>
@@ -52,7 +52,7 @@
 
 <script setup>
 import {ref, watch, onMounted, onUnmounted, nextTick, provide} from "vue";
-import {getCurrentWindow} from "@tauri-apps/api/window";
+import {getCurrentWindow, LogicalSize} from "@tauri-apps/api/window";
 import {
   CloseCircleOutlined,
   SwapOutlined
@@ -85,7 +85,9 @@ const appRef = ref(null);
 const sourceLang = ref("auto");
 const targetLang = ref("en");
 const appWindow = getCurrentWindow();
+const lastWindowHeight = ref(0)
 let unlistenFocus = null;
+let resizeObserver = null;
 
 const translateTrigger = ref(0);
 provide('translateTrigger', translateTrigger);
@@ -144,8 +146,38 @@ const swapLangs = () => {
   targetLang.value = temp;
 };
 
+async function fitWindowHeight() {
+  await nextTick();
+  if (!appRef.value) {
+    return
+  }
+  const height = appRef.value.offsetHeight;
+  if (lastWindowHeight.value === height) {
+    return;
+  }
+  lastWindowHeight.value = height;
+  await setWindowHeight(height)
+}
+
+async function setWindowHeight(height) {
+  const size = new LogicalSize(600, height);
+  const minSize = new LogicalSize(360, height);
+  const maxSize = new LogicalSize(99999, height);
+  await Promise.all([
+    appWindow.setSize(size),
+    appWindow.setMinSize(minSize),
+    appWindow.setMaxSize(maxSize),
+  ]);
+}
+
 onMounted(async () => {
   await nextTick()
+
+  if (appRef.value) {
+    await fitWindowHeight();
+    resizeObserver = new ResizeObserver(() => fitWindowHeight());
+    resizeObserver.observe(appRef.value);
+  }
 
   // 监听窗口焦点变化，失焦时隐藏窗口（钉住时不隐藏）
   unlistenFocus = await appWindow.onFocusChanged(async ({payload: focused}) => {
@@ -157,15 +189,6 @@ onMounted(async () => {
   // 应用内快捷键：capture 阶段拦截，输入框聚焦时也生效
   window.addEventListener("keydown", onAppShortcut, true);
 });
-
-// 透明区域点击穿透：鼠标进入内容区时捕获事件，离开时穿透
-async function onContentEnter() {
-  await appWindow.setIgnoreCursorEvents(false);
-}
-
-async function onContentLeave() {
-  await appWindow.setIgnoreCursorEvents(true);
-}
 
 function onAppShortcut(e) {
   const name = appShortcuts.matchAction(e);
@@ -199,6 +222,10 @@ onUnmounted(() => {
     unlistenFocus();
   }
   window.removeEventListener("keydown", onAppShortcut, true);
+  // 清理 ResizeObserver
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+  }
 });
 </script>
 

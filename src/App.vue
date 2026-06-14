@@ -1,8 +1,6 @@
 <template>
   <a-config-provider :theme="themeStore.antdConfig">
-    <div style="height: fit-content">
-      <router-view/>
-    </div>
+    <router-view/>
   </a-config-provider>
 </template>
 
