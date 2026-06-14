@@ -72,6 +72,7 @@ pub fn run() {
                             .title("设置")
                             .inner_size(800.0, 600.0)
                             .resizable(false)
+                            .visible(false)
                             .center()
                             .build();
                         }
