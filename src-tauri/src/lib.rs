@@ -4,7 +4,7 @@ mod shortcut;
 use tracing::{debug, error, info, warn};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[tauri::command]
 fn log_message(level: String, message: String) {
@@ -22,6 +22,7 @@ fn show_main_window(app: tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible().unwrap_or(false) {
             let _ = window.hide();
+            let _ = window.emit("window-hidden", ());
         } else {
             let _ = window.show();
             let _ = window.set_focus();

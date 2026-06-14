@@ -4,6 +4,8 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { buildAccelerator, sameAccelerator } from "@/utils/accelerator";
 
+const appWindow = getCurrentWindow();
+
 const STORAGE_KEY = "appShortcuts";
 const DEFAULT_SHORTCUTS = {
   clearInput: "CmdOrCtrl+Shift+K",
@@ -41,9 +43,14 @@ export const useAppShortcutsStore = defineStore("appShortcuts", () => {
   // 钉住窗口状态（不持久化，重启重置）
   const pinned = ref(false);
 
+  // 窗口因快捷键隐藏时，重置钉住状态
+  listen("window-hidden", () => {
+    pinned.value = false;
+  });
+
   function togglePin() {
     pinned.value = !pinned.value;
-    getCurrentWindow().setAlwaysOnTop(pinned.value);
+    appWindow.setAlwaysOnTop(pinned.value);
   }
 
   return { shortcuts, updateShortcut, matchAction, pinned, togglePin };
