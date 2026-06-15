@@ -30,45 +30,40 @@
       </div>
 
       <!-- 语言选择栏 -->
-      <div class="lang-bar">
-        <div style="flex: 1;text-align: center">
-          <lang-select style="width: 160px" v-model="sourceLang" :detectedLang="detectedLang" auto
-                       :container="appRef" @change="()=>translateTrigger++"/>
-        </div>
-        <div class="icon-btn" @click="swapLangs">
-          <SwapOutlined/>
-        </div>
-        <div style="flex: 1;text-align: center">
-          <lang-select style="width: 160px" v-model="targetLang" :container="appRef" @change="()=>translateTrigger++"/>
-        </div>
-      </div>
+      <lang-bar :input="inputText"
+                :container="appRef"
+                @change="onLangChange"/>
 
       <!-- 翻译服务列表 -->
-      <service-list :input="inputText" :sourceLang="sourceLang === 'auto' ? (detectedLang || 'auto') : sourceLang"
-                    :targetLang="targetLang"/>
+      <service-list :input="inputText" :sourceLang="resolvedLangs.sourceLang"
+                    :targetLang="resolvedLangs.targetLang"/>
     </div>
   </div>
 </template>
 
 <script setup>
-import {ref, watch, onMounted, onUnmounted, nextTick, provide} from "vue";
+import {ref, onMounted, onUnmounted, nextTick, provide} from "vue";
 import {getCurrentWindow, LogicalSize} from "@tauri-apps/api/window";
-import {
-  CloseCircleOutlined,
-  SwapOutlined
-} from "@ant-design/icons-vue";
-import {debounce} from "lodash";
-import LangSelect from "../components/LangSelect.vue";
+import {CloseCircleOutlined} from "@ant-design/icons-vue";
+import LangBar from "@/components/LangBar.vue";
 import MainHeader from "@/components/MainHeader.vue";
 import ServiceList from "@/components/ServiceList.vue";
 import speakerRaw from "@/assets/services/speaker.svg?raw";
 import copyRaw from "@/assets/services/copy.svg?raw";
 import {playYoudaoTTS} from '@/utils/tts.js'
-import {detectLanguage} from '@/utils/langDetect.js'
 import {getLangName} from '@/constants/lang.js'
 import {useAppShortcutsStore} from "@/stores/appShortcuts";
 
 const appShortcuts = useAppShortcutsStore();
+
+// 解析后的实际语言，由 LangBar 的 change 事件提供
+const resolvedLangs = ref({sourceLang: 'auto', targetLang: 'auto'});
+const detectedLang = ref(null);
+
+const onLangChange = ({sourceLang: s, targetLang: t, detectedLang: d}) => {
+  detectedLang.value = d;
+  resolvedLangs.value = {sourceLang: s, targetLang: t};
+};
 
 function processSvg(raw) {
   return raw
@@ -82,8 +77,6 @@ const copySvg = processSvg(copyRaw);
 
 const inputText = ref("");
 const appRef = ref(null);
-const sourceLang = ref("auto");
-const targetLang = ref("en");
 const appWindow = getCurrentWindow();
 const lastWindowHeight = ref(0)
 let unlistenFocus = null;
@@ -96,38 +89,6 @@ provide('setInputText', (text) => {
   translateTrigger.value++;
 });
 
-// 自动检测语言（仅当 sourceLang 为 auto 时生效）
-const detectedLang = ref(null);
-
-const autoDetectLang = debounce((text) => {
-  if (sourceLang.value !== 'auto') return;
-  const detected = detectLanguage(text);
-  if (detected) {
-    detectedLang.value = detected;
-  }
-}, 300);
-
-// 监听输入文本变化
-watch(inputText, (newText) => {
-  if (newText && newText.trim().length > 0) {
-    autoDetectLang(newText);
-  } else {
-    detectedLang.value = null;
-  }
-});
-
-// 监听源语言变化，切换到 auto 时重新检测
-watch(sourceLang, (newLang) => {
-  if (newLang === 'auto' && inputText.value) {
-    const detected = detectLanguage(inputText.value);
-    if (detected) {
-      detectedLang.value = detected;
-    }
-  } else {
-    detectedLang.value = null;
-  }
-});
-
 const clearInput = () => {
   inputText.value = "";
   translateTrigger.value++;
@@ -138,12 +99,6 @@ const onEnter = (e) => {
     e.preventDefault();
     translateTrigger.value++;
   }
-};
-
-const swapLangs = () => {
-  const temp = sourceLang.value;
-  sourceLang.value = targetLang.value;
-  targetLang.value = temp;
 };
 
 async function fitWindowHeight() {
@@ -212,7 +167,7 @@ function onAppShortcut(e) {
 }
 
 const playTTS = async () => {
-  const lang = sourceLang.value === 'auto' ? (detectedLang.value || 'zh') : sourceLang.value;
+  const lang = resolvedLangs.value.sourceLang === 'auto' ? 'zh' : resolvedLangs.value.sourceLang;
   await playYoudaoTTS(inputText.value, lang)
 };
 
@@ -357,15 +312,6 @@ onUnmounted(() => {
   padding: 2px 6px;
   align-items: center;
   justify-items: center;
-}
-
-.lang-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 2px;
-  background-color: var(--color-bg-secondary);
-  border-radius: 10px;
 }
 
 </style>

@@ -1,63 +1,55 @@
 <template>
-  <a-select v-model:value="selected"
+  <a-select :value="language"
             :bordered="false"
             :get-popup-container="()=>container"
             class="select"
+            :dropdownStyle="{display:'flex',flexDirection:'column',  justifyContent:'start'}"
             @change="handleChange">
-    <a-select-option v-for="item in langOptions" :value="item.value" class="lang-option">
-      <GlobalOutlined v-if="item.flag === 'auto'" />
-      <div v-else class="flag-icon" v-html="getFlagSvg(item.flag)"/>
-      {{ item.label }}
+    <a-select-option v-for="item in langOptions" :value="item.value">
+      <div class="lang-option">
+        <GlobalOutlined v-if="item.flag === 'auto'"/>
+        <div v-else class="flag-icon" v-html="getFlagSvg(item.flag)"/>
+        {{ item.label }}
+      </div>
     </a-select-option>
   </a-select>
 </template>
 
 <script setup>
 import {computed} from "vue";
-import {LANGUAGES, getFlagSvg} from "@/constants/lang.js";
+import {LANGUAGES, getFlagSvg, getLangFlag} from "@/constants/lang.js";
 import {GlobalOutlined} from "@ant-design/icons-vue";
 
 const props = defineProps({
-  modelValue: String,
-  detectedLang: {
-    type: String,
-    default: null
-  },
+  language: String, // 当前语言
   auto: {
-    type: Boolean,
-    default: false
+    type: String,
+    default: ''
   },
   container: {
     type: Object,
     default: () => document.body
+  },
+  autoText:{
+    type: String,
+    default: '自动检测'
   }
 });
 
-const emit = defineEmits(["update:modelValue", "change"]);
-
-const selected = computed({
-  get: () => props.modelValue,
-  set: (val) => emit("update:modelValue", val)
-});
+const emit = defineEmits(["update:language", "change"]);
 
 const handleChange = (value) => {
+  emit("update:language", value)
   emit("change", value);
 };
 
-const ALL_LANGUAGES = LANGUAGES
-    .filter(l => l.code !== 'auto')
-    .map(l => ({value: l.code, label: l.name, flag: l.flag}));
-
 const langOptions = computed(() => {
+  const languages = LANGUAGES.map(l => ({value: l.code, label: l.name, flag: l.flag}));
   if (props.auto) {
-    // 根据检测到的语言动态生成 auto 选项的图标
-    const detectedFlag = props.detectedLang
-        ? ALL_LANGUAGES.find(l => l.value === props.detectedLang)?.flag || 'auto'
-        : 'auto';
-    const auto = [{value: "auto", label: "自动检测", flag: detectedFlag}]
-    return [...auto, ...ALL_LANGUAGES]
+    const flag = props.auto === 'auto' ? 'auto' : getLangFlag(props.auto)
+    return [{value: "auto", label: props.autoText, flag}, ...languages]
   }
-  return ALL_LANGUAGES
+  return languages
 })
 
 </script>
@@ -73,7 +65,14 @@ const langOptions = computed(() => {
   background-color: var(--color-hover);
 }
 
-.lang-option {
+.ant-select-item-option-content .lang-option{
+  display: flex;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.ant-select-selection-item .lang-option {
   display: flex;
   align-items: center;
   text-align: center;

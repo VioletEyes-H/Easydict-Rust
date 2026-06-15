@@ -5,7 +5,6 @@ const FLAG_SVG_MAP = Object.fromEntries(
 );
 
 export const LANGUAGES = [
-  {code: 'auto', name: '自动检测', flag: 'auto'},
   {code: 'zh', name: '中文', flag: 'CN'},
   {code: 'en', name: '英文', flag: 'US'},
   {code: 'ja', name: '日文', flag: 'JP'},
@@ -52,4 +51,9 @@ export function getFlagSvg(flag) {
 export function getLangName(code) {
   const lang = LANGUAGES.find(l => l.code === code)
   return lang ? lang.name : code
+}
+
+export function getLangFlag(code) {
+  const lang = LANGUAGES.find(l => l.code === code)
+  return lang ? lang.flag : 'auto'
 }

@@ -5,12 +5,12 @@
       <a-card :body-style="{padding:'12px'}">
         <div class="form-item">
           <div>第一语言</div>
-          <lang-select v-model="generalSettings.firstLang" style="width: 140px" :size="'small'"/>
+          <lang-select :language="generalSettings.firstLang" @change="onFirstLangChange" style="width: 140px" :size="'small'"/>
         </div>
         <a-divider style="margin: 8px 0"/>
         <div class="form-item">
           <div>第二语言</div>
-          <lang-select v-model="generalSettings.secondLang" style="width: 140px" :size="'small'"/>
+          <lang-select :language="generalSettings.secondLang" @change="onSecondLangChange" style="width: 140px" :size="'small'"/>
         </div>
       </a-card>
     </div>
@@ -32,12 +32,17 @@
 <script setup>
 import ThemeSwitcher from "../../components/ThemeSwitcher.vue";
 import LangSelect from "@/components/LangSelect.vue";
-import {ref} from "vue";
+import {useGeneralSettingsStore} from "@/stores/generalSettings";
 
-const generalSettings = ref({
-  firstLang: "zh",
-  secondLang: "en"
-})
+const generalSettings = useGeneralSettingsStore();
+
+const onFirstLangChange = (value) => {
+  generalSettings.updateSettings({firstLang: value});
+};
+
+const onSecondLangChange = (value) => {
+  generalSettings.updateSettings({secondLang: value});
+};
 
 </script>
 
