@@ -23,6 +23,8 @@
 import {watch, inject} from "vue";
 import speakerRaw from "@/assets/services/speaker.svg?raw";
 import copyRaw from "@/assets/services/copy.svg?raw";
+import {useTranslateStore} from "@/stores/translate";
+import {storeToRefs} from "pinia";
 
 function processSvg(raw) {
   return raw
@@ -47,7 +49,8 @@ const props = defineProps({
 
 const emit = defineEmits(['translate', 'play-tts'])
 
-const translateTrigger = inject('translateTrigger', null)
+const translateStore = useTranslateStore();
+const {isExpanded} = storeToRefs(translateStore);
 const onServiceComplete = inject('onServiceComplete', null)
 
 watch(() => props.loading, (newVal, oldVal) => {
@@ -56,15 +59,12 @@ watch(() => props.loading, (newVal, oldVal) => {
   }
 })
 
-// 语言变化时不再自动翻译，只通过 translateTrigger（回车键）触发
-
-if (translateTrigger) {
-  watch(translateTrigger, () => {
-    if (props.type === 'view' && props.input) {
-      translate()
-    }
-  })
-}
+// 语言变化时不再自动翻译，只通过 isExpanded（回车键触发展开）触发
+watch(isExpanded, (expanded) => {
+  if (expanded && props.type === 'view' && props.input) {
+    translate()
+  }
+})
 
 const translate = () => {
   emit('translate', {

@@ -28,17 +28,18 @@
 </template>
 
 <script setup>
-import {ref, computed, watch, provide, inject} from "vue";
+import {ref, computed, watch, provide} from "vue";
 import {InfoCircleOutlined} from "@ant-design/icons-vue";
 import {useServicesStore} from "@/stores/services";
+import {useTranslateStore} from "@/stores/translate";
+import {storeToRefs} from "pinia";
 
 const props = defineProps({
   input: {type: String, default: ""},
-  sourceLang: {type: String, default: "auto"},
-  targetLang: {type: String, default: "zh"}
 });
 
-const translateTrigger = inject('translateTrigger');
+const translateStore = useTranslateStore();
+const {sourceLang, targetLang, isExpanded} = storeToRefs(translateStore);
 
 const servicesStore = useServicesStore();
 
@@ -59,12 +60,10 @@ provide('onServiceComplete', (serviceId) => {
   loading.value[serviceId] = false
 })
 
-watch(translateTrigger, () => {
+watch(isExpanded, (expanded) => {
   activeKeys.value = []
-  if (!props.input) return
-
   services.value.forEach(service => {
-    loading.value[service.id] = true
+    loading.value[service.id] = expanded && !!props.input
   })
 })
 

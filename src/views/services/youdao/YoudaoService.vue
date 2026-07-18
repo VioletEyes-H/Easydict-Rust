@@ -68,12 +68,13 @@
 </template>
 
 <script setup>
-import {ref, inject, nextTick} from 'vue'
+import {ref, nextTick} from 'vue'
 import ServiceBase from '../ServiceBase.vue'
 import {fetchWebTranslate, fetchDictQuery} from './youdao-api.js'
 import {playYoudaoTTS} from '@/utils/tts.js'
 import {isDictSupported} from './youdao-lang.js'
 import speakerRaw from "@/assets/services/speaker.svg?raw";
+import {useTranslateStore} from "@/stores/translate";
 
 function processSvg(raw) {
   return raw
@@ -176,13 +177,14 @@ const play = async (speech, type) => {
   }
 }
 
-const setInputText = inject('setInputText')
+const translateStore = useTranslateStore()
 
 const switchInputText = (text) => {
   translation.value = ''
   dictResult.value = null
   loading.value = true
-  setInputText(text)
+  translateStore.setInputText(text)
+  translateStore.expand()
 }
 </script>
 

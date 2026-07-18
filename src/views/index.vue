@@ -6,7 +6,7 @@
       <!-- 输入区域 -->
       <div class="input-area">
         <a-textarea
-            v-model:value="inputText"
+            v-model:value="inputValue"
             :auto-size="{ minRows: 2, maxRows: 20 }"
             autocapitalize="none"
             autocorrect="off"
@@ -20,10 +20,10 @@
             <span class="theme-icon" v-html="copySvg"></span>
           </div>
           <!--显示识别到的语言-->
-          <div class="detected-lang" v-if="detectedLang">
+          <div class="detected-lang" v-if="inputValue && detectedLang">
             识别为 <span style="color: #177df7">{{ getLangName(detectedLang) }}</span>
           </div>
-          <div class="icon-btn" style="margin-left: auto;" v-if="inputText" @click="clearInput">
+          <div class="icon-btn" style="margin-left: auto;" v-if="inputText || isExpanded" @click="clearInput">
             <CloseCircleOutlined style="font-size: 16px"/>
           </div>
         </div>
@@ -31,18 +31,16 @@
 
       <!-- 语言选择栏 -->
       <lang-bar :input="inputText"
-                :container="appRef"
-                @change="onLangChange"/>
+                :container="appRef"/>
 
       <!-- 翻译服务列表 -->
-      <service-list :input="inputText" :sourceLang="resolvedLangs.sourceLang"
-                    :targetLang="resolvedLangs.targetLang"/>
+      <service-list :input="inputText"/>
     </div>
   </div>
 </template>
 
 <script setup>
-import {ref, onMounted, onUnmounted, nextTick, provide} from "vue";
+import {ref, onMounted, onUnmounted, nextTick, watch} from "vue";
 import {getCurrentWindow, LogicalSize} from "@tauri-apps/api/window";
 import {CloseCircleOutlined} from "@ant-design/icons-vue";
 import LangBar from "@/components/LangBar.vue";
@@ -53,17 +51,18 @@ import copyRaw from "@/assets/services/copy.svg?raw";
 import {playYoudaoTTS} from '@/utils/tts.js'
 import {getLangName} from '@/constants/lang.js'
 import {useAppShortcutsStore} from "@/stores/appShortcuts";
+import {useTranslateStore} from "@/stores/translate";
+import {storeToRefs} from "pinia";
 
 const appShortcuts = useAppShortcutsStore();
+const translateStore = useTranslateStore();
+const inputValue = ref('')
+const {inputText, sourceLang, detectedLang, isExpanded} = storeToRefs(translateStore);
 
-// 解析后的实际语言，由 LangBar 的 change 事件提供
-const resolvedLangs = ref({sourceLang: 'auto', targetLang: 'auto'});
-const detectedLang = ref(null);
-
-const onLangChange = ({sourceLang: s, targetLang: t, detectedLang: d}) => {
-  detectedLang.value = d;
-  resolvedLangs.value = {sourceLang: s, targetLang: t};
-};
+watch(inputText, (text) => {
+  if(text === inputValue.value) return;
+  inputValue.value = text;
+});
 
 function processSvg(raw) {
   return raw
@@ -75,29 +74,21 @@ function processSvg(raw) {
 const speakerSvg = processSvg(speakerRaw);
 const copySvg = processSvg(copyRaw);
 
-const inputText = ref("");
 const appRef = ref(null);
 const appWindow = getCurrentWindow();
 const lastWindowHeight = ref(0)
 let unlistenFocus = null;
 let resizeObserver = null;
 
-const translateTrigger = ref(0);
-provide('translateTrigger', translateTrigger);
-provide('setInputText', (text) => {
-  inputText.value = text;
-  translateTrigger.value++;
-});
-
 const clearInput = () => {
-  inputText.value = "";
-  translateTrigger.value++;
+  translateStore.clearInput();
+  translateStore.setExpanded(false);
 };
 
 const onEnter = (e) => {
   if (!e.shiftKey) {
     e.preventDefault();
-    translateTrigger.value++;
+    submitInput()
   }
 };
 
@@ -158,7 +149,7 @@ function onAppShortcut(e) {
       playTTS();
       break;
     case "retry":
-      translateTrigger.value++;
+      submitInput()
       break;
     case "pinWindow":
       appShortcuts.togglePin();
@@ -166,8 +157,15 @@ function onAppShortcut(e) {
   }
 }
 
+const submitInput = () => {
+  const raw = inputValue.value.trim();
+  if (raw === inputText.value) return;
+  translateStore.setInputText(raw);
+  translateStore.expand();
+};
+
 const playTTS = async () => {
-  const lang = resolvedLangs.value.sourceLang === 'auto' ? 'zh' : resolvedLangs.value.sourceLang;
+  const lang = sourceLang.value === 'auto' ? 'zh' : sourceLang.value;
   await playYoudaoTTS(inputText.value, lang)
 };
 

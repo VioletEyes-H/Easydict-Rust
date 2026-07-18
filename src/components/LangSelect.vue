@@ -7,7 +7,7 @@
             @change="handleChange">
     <a-select-option v-for="item in langOptions" :value="item.value">
       <div class="lang-option">
-        <GlobalOutlined v-if="item.flag === 'auto'"/>
+        <GlobalOutlined v-if="item.flag === 'auto'" style="font-size: 14px"/>
         <div v-else class="flag-icon" v-html="getFlagSvg(item.flag)"/>
         {{ item.label }}
       </div>
@@ -82,8 +82,8 @@ const langOptions = computed(() => {
 
 .flag-icon {
   display: inline-flex;
-  width: 20px;
-  height: 15px;
+  width: 16px;
+  height: 12px;
   overflow: hidden;
   border-radius: 2px;
 }
