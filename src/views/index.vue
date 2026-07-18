@@ -16,7 +16,7 @@
           <div class="icon-btn" @click="playTTS">
             <span class="theme-icon" v-html="speakerSvg"></span>
           </div>
-          <div class="icon-btn">
+          <div class="icon-btn" @click="copyInput" title="复制">
             <span class="theme-icon" v-html="copySvg"></span>
           </div>
           <!--显示识别到的语言-->
@@ -30,7 +30,7 @@
       </div>
 
       <!-- 语言选择栏 -->
-      <lang-bar :input="inputText"
+      <lang-bar :input="inputValue"
                 :container="appRef"/>
 
       <!-- 翻译服务列表 -->
@@ -167,6 +167,10 @@ const submitInput = () => {
 const playTTS = async () => {
   const lang = sourceLang.value === 'auto' ? 'zh' : sourceLang.value;
   await playYoudaoTTS(inputText.value, lang)
+};
+
+const copyInput = () => {
+  navigator.clipboard.writeText(inputValue.value)
 };
 
 onUnmounted(() => {
