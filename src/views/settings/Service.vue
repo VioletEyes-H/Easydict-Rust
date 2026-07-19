@@ -14,19 +14,19 @@
         <div v-for="service in services"
              :key="service.id"
              class="service-item"
-             :class="{ active: currentService.id === service.id }"
-             @click="currentService = service">
-          <div v-if="service.icon && service.icon.includes('<svg')"
+             :class="{ active: currentServiceId === service.id }"
+             @click="currentServiceId = service.id">
+          <div v-if="displayIcon(service)?.includes('<svg')"
                class="service-icon service-icon-svg"
-               :style="{ backgroundColor: service.color }"
-               v-html="service.icon"/>
+               :style="{ backgroundColor: displayColor(service) }"
+               v-html="displayIcon(service)"/>
           <div v-else
                class="service-icon"
-               :style="{ backgroundColor: service.color }">
-            {{ service.icon }}
+               :style="{ backgroundColor: displayColor(service) }">
+            {{ displayIcon(service) }}
           </div>
           <div class="service-info">
-            <div class="service-name">{{ service.name }}</div>
+            <div class="service-name">{{ service.config?.name || service.name }}</div>
           </div>
           <a-switch :checked="service.enabled" size="small" @change="toggleService(service.id, $event)"/>
         </div>
@@ -36,8 +36,8 @@
     <!-- 右侧配置区域 -->
     <div class="service-config" v-if="currentService">
       <div class="config-header">
-        <div class="config-name">{{ currentService.name }}</div>
-        <a-button v-if="currentService.id?.includes('custom')"
+        <div class="config-name">{{ currentService.config?.name || currentService.name }}</div>
+        <a-button v-if="currentService.id?.startsWith('llm_')"
                   type="primary" danger
                   size="small"
                   style="font-size:10px;margin-right: 8px;height: 20px"
@@ -62,10 +62,13 @@ import {useServicesStore} from '@/stores/services'
 const servicesStore = useServicesStore()
 
 const services = computed(() => servicesStore.services)
-const currentService = ref({})
+const currentServiceId = ref(null)
+const currentService = computed(() => {
+  return services.value.find(s => s.id === currentServiceId.value) || services.value[0] || {}
+})
 
 onMounted(() => {
-  currentService.value = services.value[0]
+  currentServiceId.value = services.value[0]?.id
 })
 
 function toggleService(id, enabled) {
@@ -73,19 +76,28 @@ function toggleService(id, enabled) {
 }
 
 function startCreate() {
-  const id = `custom_${Date.now()}`
+  const id = `llm_${Date.now()}`
   servicesStore.set(id, {
     id,
-    name: '自定义服务',
-    templateId: 'custom',
+    name: '自定义 LLM',
+    templateId: 'llm',
     enabled: true,
+    panel: true,
     config: {}
   })
 }
 
 function deleteService(id) {
   servicesStore.remove(id)
-  currentService.value = services.value[0]
+  currentServiceId.value = services.value[0]?.id
+}
+
+function displayIcon(service) {
+  return service.config?.icon || service.icon
+}
+
+function displayColor(service) {
+  return service.config?.color || service.color
 }
 </script>
 

@@ -52,10 +52,13 @@ const activeKeys = ref([]);
 const loading = ref({})
 
 provide('onServiceComplete', (serviceId) => {
-  const expanded = new Set(activeKeys.value)
-  if (!expanded.has(serviceId)) {
-    expanded.add(serviceId)
-    activeKeys.value = [...expanded]
+  const service = servicesStore.get(serviceId)
+  if (service?.panel !== false) {
+    const expanded = new Set(activeKeys.value)
+    if (!expanded.has(serviceId)) {
+      expanded.add(serviceId)
+      activeKeys.value = [...expanded]
+    }
   }
   loading.value[serviceId] = false
 })

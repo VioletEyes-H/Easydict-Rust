@@ -12,7 +12,7 @@ import NiuTransService from './niutrans/NiuTransService.vue'
 import OpenAIService from './openai/OpenAIService.vue'
 import DeepSeekService from './deepseek/DeepSeekService.vue'
 import GeminiService from './gemini/GeminiService.vue'
-import CustomService from "@/views/services/CustomService.vue";
+import LLMService from "@/views/services/llm/LLMService.vue";
 import baiduSvg from '@/assets/services/baidu.svg?raw'
 import youdaoSvg from '@/assets/services/youdao.svg?raw'
 import bingSvg from '@/assets/services/bing.svg?raw'
@@ -48,7 +48,7 @@ export const serviceTemplates = {
     'openai': {icon: sanitizeSvg(openaiSvg), color: '#10A37F', component: markRaw(OpenAIService)},
     'deepseek': {icon: sanitizeSvg(deepseekSvg), color: '#4D6BFE', component: markRaw(DeepSeekService)},
     'gemini': {icon: sanitizeSvg(geminiSvg), color: '#4285F4', component: markRaw(GeminiService)},
-    'custom': {icon: 'AI',color:'#1677ff', component: markRaw(CustomService)}
+    'llm': {icon: 'AI',color:'#1677ff', component: markRaw(LLMService)}
 }
 
 // 预设配置
