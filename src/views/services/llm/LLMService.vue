@@ -6,11 +6,16 @@
           <div class="form-rows">
             <div class="form-row">
               <span class="form-label">服务名称</span>
-              <a-input v-model:value="form.name" placeholder="输入服务名称" @change="save"/>
+              <a-input allow-clear v-model:value="form.name" placeholder="输入服务名称" @change="save"/>
             </div>
             <div class="form-row">
               <span class="form-label">API 地址</span>
-              <a-input v-model:value="form.endpoint" placeholder="https://api.openai.com/v1/chat/completions" @change="save"/>
+              <a-input allow-clear v-model:value="form.endpoint" placeholder="https://api.openai.com/v1" @change="save"/>
+            </div>
+            <div class="form-row-hint">
+              <a-typography-text type="secondary" style="font-size: 12px">
+                支持填写 base URL，程序会自动拼接 <code>/chat/completions</code>
+              </a-typography-text>
             </div>
             <div class="form-row">
               <span class="form-label">API Key</span>
@@ -18,7 +23,7 @@
             </div>
             <div class="form-row">
               <span class="form-label">模型</span>
-              <a-input v-model:value="form.model" placeholder="gpt-4o-mini" @change="save"/>
+              <a-input  allow-clear v-model:value="form.model" placeholder="gpt-4o-mini" @change="save"/>
             </div>
             <div class="form-row">
               <span class="form-label">温度</span>
@@ -132,11 +137,10 @@ const verifyResult = ref(null)
 let abortController = null
 
 const defaultValues = {
-  name: '自定义 LLM',
-  icon: '🤖',
-  color: '#1677ff',
+  name: '自定义大模型',
+  color: '#FFF',
   apiKey: '',
-  endpoint: 'https://api.openai.com/v1/chat/completions',
+  endpoint: 'https://api.openai.com/v1',
   model: 'gpt-4o-mini',
   systemPrompt: '',
   userPrompt: '',
@@ -147,14 +151,12 @@ const defaultValues = {
 const form = reactive({...defaultValues})
 
 watch(() => props.config, (newConfig) => {
-  form.name = newConfig.name || defaultValues.name
-  form.icon = newConfig.icon || defaultValues.icon
-  form.color = newConfig.color || defaultValues.color
-  form.apiKey = newConfig.apiKey || defaultValues.apiKey
-  form.endpoint = newConfig.endpoint || defaultValues.endpoint
-  form.model = newConfig.model || defaultValues.model
-  form.systemPrompt = newConfig.systemPrompt || defaultValues.systemPrompt
-  form.userPrompt = newConfig.userPrompt || defaultValues.userPrompt
+  form.name = newConfig.name ?? defaultValues.name
+  form.apiKey = newConfig.apiKey ?? defaultValues.apiKey
+  form.endpoint = newConfig.endpoint ?? defaultValues.endpoint
+  form.model = newConfig.model ?? defaultValues.model
+  form.systemPrompt = newConfig.systemPrompt ?? defaultValues.systemPrompt
+  form.userPrompt = newConfig.userPrompt ?? defaultValues.userPrompt
   form.temperature = Number.isFinite(newConfig.temperature) ? newConfig.temperature : defaultValues.temperature
   form.maxTokens = Number.isFinite(newConfig.maxTokens) ? newConfig.maxTokens : defaultValues.maxTokens
 }, {immediate: true})
@@ -164,7 +166,6 @@ function save() {
     config: {
       ...props.config,
       name: form.name,
-      icon: form.icon,
       color: form.color,
       apiKey: form.apiKey,
       endpoint: form.endpoint,
@@ -323,6 +324,11 @@ function playTTS() {
 
 .verify-info {
   flex: 1;
+}
+
+.form-row-hint {
+  margin-left: 112px;
+  font-size: 12px;
 }
 
 .config-hint {

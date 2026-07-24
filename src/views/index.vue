@@ -46,8 +46,8 @@ import {CloseCircleOutlined} from "@ant-design/icons-vue";
 import LangBar from "@/components/LangBar.vue";
 import MainHeader from "@/components/MainHeader.vue";
 import ServiceList from "@/components/ServiceList.vue";
-import speakerRaw from "@/assets/services/speaker.svg?raw";
-import copyRaw from "@/assets/services/copy.svg?raw";
+import speakerRaw from "@/assets/speaker.svg?raw";
+import copyRaw from "@/assets/copy.svg?raw";
 import {playYoudaoTTS} from '@/utils/tts.js'
 import {getLangName} from '@/constants/lang.js'
 import {useAppShortcutsStore} from "@/stores/appShortcuts";

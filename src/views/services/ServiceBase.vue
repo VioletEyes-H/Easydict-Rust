@@ -21,8 +21,8 @@
 
 <script setup>
 import {watch, inject} from "vue";
-import speakerRaw from "@/assets/services/speaker.svg?raw";
-import copyRaw from "@/assets/services/copy.svg?raw";
+import speakerRaw from "@/assets/speaker.svg?raw";
+import copyRaw from "@/assets/copy.svg?raw";
 import {useTranslateStore} from "@/stores/translate";
 import {storeToRefs} from "pinia";
 

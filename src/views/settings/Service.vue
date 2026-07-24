@@ -79,7 +79,7 @@ function startCreate() {
   const id = `llm_${Date.now()}`
   servicesStore.set(id, {
     id,
-    name: '自定义 LLM',
+    name: '自定义大模型',
     templateId: 'llm',
     enabled: true,
     panel: true,

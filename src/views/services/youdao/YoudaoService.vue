@@ -73,7 +73,7 @@ import ServiceBase from '../ServiceBase.vue'
 import {fetchWebTranslate, fetchDictQuery} from './youdao-api.js'
 import {playYoudaoTTS} from '@/utils/tts.js'
 import {isDictSupported} from './youdao-lang.js'
-import speakerRaw from "@/assets/services/speaker.svg?raw";
+import speakerRaw from "@/assets/speaker.svg?raw";
 import {useTranslateStore} from "@/stores/translate";
 
 function processSvg(raw) {

@@ -29,7 +29,7 @@ export async function fetchLLMTranslate(text, sourceLang, targetLang, detectedLa
   const payload = buildPayload(text, actualSourceLang, targetLang, config)
 
   const response = await invoke('http_post', {
-    url: config.endpoint || DEFAULT_ENDPOINT,
+    url: buildEndpoint(config),
     body: JSON.stringify(payload),
     headers: {
       'Content-Type': 'application/json',
@@ -69,6 +69,14 @@ function buildPayload(text, sourceLang, targetLang, config) {
     temperature: Number.isFinite(config.temperature) ? config.temperature : DEFAULT_TEMPERATURE,
     max_tokens: Number.isFinite(config.maxTokens) ? config.maxTokens : DEFAULT_MAX_TOKENS,
   }
+}
+
+function buildEndpoint(config) {
+  const endpoint = (config.endpoint || DEFAULT_ENDPOINT).trim()
+  if (endpoint.endsWith('/chat/completions')) {
+    return endpoint
+  }
+  return endpoint.replace(/\/+$/, '') + '/chat/completions'
 }
 
 function buildVariables(text, sourceLang, targetLang) {
