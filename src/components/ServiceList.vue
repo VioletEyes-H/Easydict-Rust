@@ -13,7 +13,7 @@
           <InfoCircleOutlined v-else/>
           <span class="service-name">{{ service.name }}</span>
           <span v-if="service.tag" class="service-tag">{{ service.tag }}</span>
-          <a-spin size="small" v-if="loading[service.id]"/>
+          <a-spin size="small" v-if="serviceStatus[service.id] === ServiceStatus.LOADING"/>
         </div>
       </template>
       <component :is="service.component"
@@ -28,10 +28,10 @@
 </template>
 
 <script setup>
-import {ref, computed, watch, provide} from "vue";
+import {ref, computed, watch} from "vue";
 import {InfoCircleOutlined} from "@ant-design/icons-vue";
 import {useServicesStore} from "@/stores/services";
-import {useTranslateStore} from "@/stores/translate";
+import {useTranslateStore, ServiceStatus} from "@/stores/translate";
 import {storeToRefs} from "pinia";
 
 const props = defineProps({
@@ -39,7 +39,7 @@ const props = defineProps({
 });
 
 const translateStore = useTranslateStore();
-const {sourceLang, targetLang, isExpanded} = storeToRefs(translateStore);
+const {sourceLang, targetLang, serviceStatus} = storeToRefs(translateStore);
 
 const servicesStore = useServicesStore();
 
@@ -49,31 +49,34 @@ const services = computed(() => {
 })
 
 const activeKeys = ref([]);
-const loading = ref({})
 
-provide('onServiceComplete', (serviceId) => {
-  const service = servicesStore.get(serviceId)
-  if (service?.panel !== false) {
-    const expanded = new Set(activeKeys.value)
-    if (!expanded.has(serviceId)) {
-      expanded.add(serviceId)
-      activeKeys.value = [...expanded]
-    }
+// 状态驱动面板开合：0 收起，2 展开；1（翻译中）保持收起仅显示转圈。
+watch(serviceStatus, (status) => {
+  const keys = new Set(activeKeys.value)
+  for (const [id, s] of Object.entries(status)) {
+    if (s === ServiceStatus.COLLAPSED || s === ServiceStatus.LOADING) keys.delete(id)
+    if (s === ServiceStatus.DONE) keys.add(id)
   }
-  loading.value[serviceId] = false
-})
-
-watch(isExpanded, (expanded) => {
-  activeKeys.value = []
-  services.value.forEach(service => {
-    loading.value[service.id] = expanded && !!props.input
-  })
-})
+  activeKeys.value = [...keys]
+}, {deep: true})
 
 function onCollapseChange(keys) {
-  if (props.input) {
-    activeKeys.value = keys
-  }
+  if (!props.input) return
+  const prev = activeKeys.value
+  // 手动折叠的服务状态置 0，避免翻译完成（状态变 2）时 watch 又自动弹开面板。
+  const removed = prev.filter(k => !keys.includes(k))
+  removed.forEach(id => {
+    translateStore.setServiceStatus(id, ServiceStatus.COLLAPSED)
+  })
+  // 手动展开 panel === false 的服务时触发翻译（状态置 1，子组件 watch 后开始翻译）
+  const added = keys.filter(k => !prev.includes(k))
+  added.forEach(id => {
+    const service = servicesStore.get(id)
+    if (service.panel === false && serviceStatus.value[id] !== ServiceStatus.LOADING) {
+      translateStore.setServiceStatus(id, ServiceStatus.LOADING)
+    }
+  })
+  activeKeys.value = keys
 }
 </script>
 

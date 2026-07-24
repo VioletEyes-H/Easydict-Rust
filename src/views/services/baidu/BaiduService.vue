@@ -1,5 +1,5 @@
 <template>
-  <service-base v-bind="$props" :translated="translation" :loading="loading" @translate="translate" @play-tts="playTTS">
+  <service-base v-bind="$props" :translated="translation" @translate="translate" @play-tts="playTTS">
     <template #config>
       <div class="baidu-config">
         <a-card size="small" :bordered="true" :style="{borderRadius: '8px'}">
@@ -86,12 +86,9 @@ const props = defineProps({
 const servicesStore = useServicesStore()
 
 const translation = ref('')
-const loading = ref(false)
 const error = ref('')
 const verifying = ref(false)
 const verifyResult = ref(null)
-
-let abortController = null
 
 const form = reactive({
   appId: props.config.appId || '',
@@ -135,20 +132,18 @@ async function translate(e) {
   if (!input.trim()) {
     translation.value = ''
     error.value = ''
+    e.done()
     return
   }
 
-  loading.value = true
   if (!isConfigured.value) {
     translation.value = ''
     error.value = ''
-    loading.value = false
+    e.done()
     return
   }
 
-  abortController?.abort()
-  abortController = new AbortController()
-  const {signal} = abortController
+  const {signal} = e
 
   error.value = ''
   translation.value = ''
@@ -171,9 +166,8 @@ async function translate(e) {
     console.error('[BaiduService] translate error:', err)
     error.value = err.message || '翻译失败，请重试'
   } finally {
-    if (!signal.aborted) {
-      loading.value = false
-    }
+    // 成功/失败/被 abort 都通知 ServiceBase 本轮结束，旧请求由 ServiceBase 的序号守卫丢弃
+    e.done()
   }
 }
 

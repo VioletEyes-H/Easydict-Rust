@@ -1,5 +1,13 @@
 import { defineStore } from "pinia";
-import { ref, nextTick } from "vue";
+import { ref } from "vue";
+import { useServicesStore } from "@/stores/services";
+
+// 服务翻译状态
+export const ServiceStatus = {
+  COLLAPSED: 0, // 收起（初始/重置）
+  LOADING: 1, // 翻译中（header 转圈，面板收起）
+  DONE: 2, // 完成（成功或失败，面板展开，错误由子组件展示）
+};
 
 // 翻译会话状态（仅主窗口使用，无需跨窗口同步）
 export const useTranslateStore = defineStore("translate", () => {
@@ -13,8 +21,8 @@ export const useTranslateStore = defineStore("translate", () => {
   // 检测到的输入语言
   const detectedLang = ref(null);
 
-  // 翻译服务面板是否展开：true 展开并加载，false 收起
-  const isExpanded = ref(false);
+  // 各服务翻译状态：{ [serviceId]: 0 | 1 | 2 }，见 ServiceStatus
+  const serviceStatus = ref({});
 
   function setInputText(text) {
     inputText.value = text;
@@ -22,6 +30,7 @@ export const useTranslateStore = defineStore("translate", () => {
 
   function clearInput() {
     inputText.value = "";
+    resetTranslate();
   }
 
   function setLangs(s, t) {
@@ -33,20 +42,31 @@ export const useTranslateStore = defineStore("translate", () => {
     detectedLang.value = lang;
   }
 
-  function setExpanded(value) {
-    isExpanded.value = value;
+  // 回车触发新一轮翻译：
+  // enabled && panel !== false 的服务置 1（自动翻译），其余启用服务置 0（收起不触发）
+  function submitTranslate() {
+    const servicesStore = useServicesStore();
+    const next = {};
+    servicesStore.services
+      .filter((s) => s.enabled)
+      .forEach((s) => {
+        next[s.id] = s.panel === false ? ServiceStatus.COLLAPSED : ServiceStatus.LOADING;
+      });
+    serviceStatus.value = next;
   }
 
-  // 展开服务面板并触发新一轮翻译；若已展开，先收起再展开以重新触发
-  function expand() {
-    if (isExpanded.value) {
-      isExpanded.value = false;
-      nextTick(() => {
-        isExpanded.value = true;
-      });
-    } else {
-      isExpanded.value = true;
+  function setServiceStatus(id, status) {
+    serviceStatus.value = { ...serviceStatus.value, [id]: status };
+  }
+
+  // 清空翻译：所有服务显式置 0（而不是置空对象），
+  // 这样 ServiceList 的 watch 能感知到每个服务的变化并收起面板
+  function resetTranslate() {
+    const next = {};
+    for (const id of Object.keys(serviceStatus.value)) {
+      next[id] = ServiceStatus.COLLAPSED;
     }
+    serviceStatus.value = next;
   }
 
   return {
@@ -54,12 +74,13 @@ export const useTranslateStore = defineStore("translate", () => {
     sourceLang,
     targetLang,
     detectedLang,
-    isExpanded,
+    serviceStatus,
     setInputText,
     clearInput,
     setLangs,
     setDetectedLang,
-    setExpanded,
-    expand,
+    submitTranslate,
+    setServiceStatus,
+    resetTranslate,
   };
 });

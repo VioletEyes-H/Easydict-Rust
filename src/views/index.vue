@@ -23,7 +23,7 @@
           <div class="detected-lang" v-if="inputValue && detectedLang">
             识别为 <span style="color: #177df7">{{ getLangName(detectedLang) }}</span>
           </div>
-          <div class="icon-btn" style="margin-left: auto;" v-if="inputText || isExpanded" @click="clearInput">
+          <div class="icon-btn" style="margin-left: auto;" v-if="inputText || hasTranslation" @click="clearInput">
             <CloseCircleOutlined style="font-size: 16px"/>
           </div>
         </div>
@@ -40,7 +40,7 @@
 </template>
 
 <script setup>
-import {ref, onMounted, onUnmounted, nextTick, watch} from "vue";
+import {ref, computed, onMounted, onUnmounted, nextTick, watch} from "vue";
 import {getCurrentWindow, LogicalSize} from "@tauri-apps/api/window";
 import {CloseCircleOutlined} from "@ant-design/icons-vue";
 import LangBar from "@/components/LangBar.vue";
@@ -57,7 +57,10 @@ import {storeToRefs} from "pinia";
 const appShortcuts = useAppShortcutsStore();
 const translateStore = useTranslateStore();
 const inputValue = ref('')
-const {inputText, sourceLang, detectedLang, isExpanded} = storeToRefs(translateStore);
+const {inputText, sourceLang, detectedLang, serviceStatus} = storeToRefs(translateStore);
+
+// 是否有正在进行/已完成的翻译（控制清空按钮显示）
+const hasTranslation = computed(() => Object.values(serviceStatus.value).some(s => s !== 0));
 
 watch(inputText, (text) => {
   if(text === inputValue.value) return;
@@ -82,7 +85,6 @@ let resizeObserver = null;
 
 const clearInput = () => {
   translateStore.clearInput();
-  translateStore.setExpanded(false);
 };
 
 const onEnter = (e) => {
@@ -159,9 +161,13 @@ function onAppShortcut(e) {
 
 const submitInput = () => {
   const raw = inputValue.value.trim();
+  if (!raw) {
+    translateStore.clearInput();
+    return;
+  }
   if (raw === inputText.value) return;
   translateStore.setInputText(raw);
-  translateStore.expand();
+  translateStore.submitTranslate();
 };
 
 const playTTS = async () => {

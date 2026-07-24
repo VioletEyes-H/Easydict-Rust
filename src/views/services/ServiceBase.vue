@@ -20,11 +20,10 @@
 </template>
 
 <script setup>
-import {watch, inject} from "vue";
+import {watch} from "vue";
 import speakerRaw from "@/assets/speaker.svg?raw";
 import copyRaw from "@/assets/copy.svg?raw";
-import {useTranslateStore} from "@/stores/translate";
-import {storeToRefs} from "pinia";
+import {useTranslateStore, ServiceStatus} from "@/stores/translate";
 
 function processSvg(raw) {
   return raw
@@ -44,34 +43,58 @@ const props = defineProps({
   sourceLang: {type: String, default: 'auto'},
   targetLang: {type: String, default: 'zh'},
   translated: {type: String},
-  loading: {type: Boolean, default: false}
 })
 
 const emit = defineEmits(['translate', 'play-tts'])
 
 const translateStore = useTranslateStore();
-const {isExpanded} = storeToRefs(translateStore);
-const onServiceComplete = inject('onServiceComplete', null)
 
-watch(() => props.loading, (newVal, oldVal) => {
-  if (oldVal === true && newVal === false && onServiceComplete) {
-    onServiceComplete(props.id)
+// 状态机驱动：本服务状态为 1（翻译中）且输入变化时开始翻译。
+// 同时监听 props.input：翻译进行中再次回车时状态是 1→1，靠输入变化重新触发。
+watch(() => [translateStore.serviceStatus[props.id], props.input], () => {
+  if (translateStore.serviceStatus[props.id] === ServiceStatus.LOADING
+      && props.type === 'view' && props.input) {
+    runTranslate()
   }
 })
 
-// 语言变化时不再自动翻译，只通过 isExpanded（回车键触发展开）触发
-watch(isExpanded, (expanded) => {
-  if (expanded && props.type === 'view' && props.input) {
-    translate()
-  }
-})
+// 发起翻译并等待子组件完成：emit 参数里携带 signal 与 done 回调。
+// 子组件用 signal 取消请求；执行完（成功/失败/被 abort/超时）后调用 e.done()，await 在此处返回。
+let callSeq = 0
+let currentAbortController = null
+const TRANSLATE_TIMEOUT_MS = 30000
 
-const translate = () => {
-  emit('translate', {
-    input: props.input,
-    sourceLang: props.sourceLang,
-    targetLang: props.targetLang
+async function runTranslate() {
+  const mySeq = ++callSeq
+  currentAbortController?.abort()
+  currentAbortController = new AbortController()
+  const {signal} = currentAbortController
+
+  let timer = null
+  await new Promise(resolve => {
+    timer = setTimeout(() => {
+      console.warn(`[ServiceBase:${props.id}] translate timeout`)
+      currentAbortController?.abort()
+      resolve()
+    }, TRANSLATE_TIMEOUT_MS)
+    emit('translate', {
+      input: props.input,
+      sourceLang: props.sourceLang,
+      targetLang: props.targetLang,
+      signal,
+      done: () => {
+        clearTimeout(timer)
+        resolve()
+      },
+    })
   })
+  if (timer) clearTimeout(timer)
+  currentAbortController = null
+  if (mySeq !== callSeq) return // 被新一轮顶替的旧请求，丢弃
+  // 用户手动折叠会把状态置为 COLLAPSED，此时不应再弹开面板
+  if (translateStore.serviceStatus[props.id] === ServiceStatus.LOADING) {
+    translateStore.setServiceStatus(props.id, ServiceStatus.DONE)
+  }
 }
 
 const copy = () => {

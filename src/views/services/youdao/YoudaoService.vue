@@ -1,5 +1,5 @@
 <template>
-  <service-base v-bind="$props" :translated="translation" :loading="loading" @translate="translate" @play-tts="playTTS">
+  <service-base v-bind="$props" :translated="translation" @translate="translate" @play-tts="playTTS">
     <template #view>
       <div class="youdao-result">
         <div v-if="error" class="error">
@@ -97,10 +97,7 @@ const props = defineProps({
 
 const translation = ref('')
 const dictResult = ref(null)
-const loading = ref(false)
 const error = ref('')
-
-let abortController = null
 
 async function translate(e) {
   const {input, sourceLang, targetLang} = e
@@ -108,15 +105,12 @@ async function translate(e) {
     translation.value = ''
     dictResult.value = null
     error.value = ''
+    e.done()
     return
   }
 
-  // 取消上一次请求
-  abortController?.abort()
-  abortController = new AbortController()
-  const {signal} = abortController
+  const {signal} = e
 
-  loading.value = true
   error.value = ''
   translation.value = ''
   dictResult.value = null
@@ -153,9 +147,8 @@ async function translate(e) {
     console.error('[YoudaoService] translate error:', err)
     error.value = err.message || '翻译失败，请重试'
   } finally {
-    if (!signal.aborted) {
-      loading.value = false
-    }
+    // 成功/失败/被 abort 都通知 ServiceBase「本轮结束」，旧请求由 ServiceBase 的序号守卫丢弃
+    e.done()
   }
 }
 
@@ -182,9 +175,8 @@ const translateStore = useTranslateStore()
 const switchInputText = (text) => {
   translation.value = ''
   dictResult.value = null
-  loading.value = true
   translateStore.setInputText(text)
-  translateStore.expand()
+  translateStore.submitTranslate()
 }
 </script>
 
