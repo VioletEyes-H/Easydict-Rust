@@ -14,6 +14,10 @@ export const router = createRouter({
       component: () => import("../views/index.vue"),
     },
     {
+      path: "/permission",
+      component: () => import("../views/Permission.vue"),
+    },
+    {
       path: "/settings",
       component: () => import("../views/settings/index.vue"),
       redirect: "/settings/general",

@@ -5,10 +5,12 @@ import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { toDisplay } from "@/utils/accelerator";
+import { useTranslateStore } from "./translate";
 
 const STORAGE_KEY = "shortcuts";
 const DEFAULT_SHORTCUTS = {
   inputTranslate: "CmdOrCtrl+Shift+T",
+  translateSelection: "Alt+T",
 };
 
 // 全局快捷键由 main 窗口单一拥有注册；settings 窗口仅改存储并广播
@@ -36,6 +38,7 @@ export const useShortcutsStore = defineStore("shortcuts", () => {
   }
 
   function handleShortcutAction(name) {
+    console.log('action==>', name)
     switch (name) {
       case "inputTranslate":
         // 触发显示/隐藏主窗口
@@ -43,6 +46,21 @@ export const useShortcutsStore = defineStore("shortcuts", () => {
           // 如果命令不存在，可以通过事件通知
           console.log("Triggering input translate");
         });
+        break;
+      case "translateSelection":
+        // 划词翻译：后端单命令封装「读剪贴板→模拟复制→轮询→恢复→显示窗口」，
+        // 前端只需 invoke 一次拿到选中文本，填入并触发翻译。
+        invoke("translate_selection")
+          .then((text) => {
+            const trimmed = text?.trim();
+            console.log('translate==>', trimmed)
+            if (trimmed) {
+              const translateStore = useTranslateStore();
+              translateStore.setInputText(trimmed);
+              translateStore.submitTranslate();
+            }
+          })
+          .catch((e) => console.error("划词翻译失败:", e));
         break;
       default:
         console.warn(`Unknown shortcut action: ${name}`);

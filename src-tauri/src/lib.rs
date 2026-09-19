@@ -1,4 +1,5 @@
 mod http;
+mod selection;
 mod shortcut;
 
 use tracing::{debug, error, info, warn};
@@ -37,9 +38,29 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(shortcut::create_plugin())
         .setup(|app| {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+            // macOS：未授权辅助功能权限时，创建一个独立的提示窗口
+            #[cfg(target_os = "macos")]
+            {
+                if !unsafe { selection::ax_permission::AXIsProcessTrusted() } {
+                    let _ = tauri::WebviewWindowBuilder::new(
+                        app,
+                        "permission",
+                        tauri::WebviewUrl::App("/permission".into())
+                    )
+                    .title("需要辅助功能权限")
+                    .inner_size(400.0, 180.0)
+                    .resizable(false)
+                    .decorations(true)
+                    .center()
+                    .focused(true)
+                    .build();
+                }
+            }
 
             let show_item = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;
             let settings_item = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
@@ -108,6 +129,8 @@ pub fn run() {
             http::http_post,
             http::play_system_tts,
             http::play_audio_stream,
+            selection::translate_selection,
+            selection::check_accessibility_permission,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

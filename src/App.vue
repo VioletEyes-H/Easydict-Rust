@@ -24,6 +24,7 @@ useShortcutsStore();
 
 const serviceStore = useServicesStore();
 onMounted(() => {
+  // 仅在主窗口初始化翻译服务
   defaultServices.forEach(item => {
     if (!serviceStore.data[item.id]) {
       serviceStore.set(item.id, item)

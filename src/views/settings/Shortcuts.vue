@@ -30,7 +30,22 @@
         <a-divider style="margin: 8px 0"/>
         <div class="form-item">
           <div>划词翻译</div>
-          <a-input size="small" style="width: 140px" placeholder="暂未实现" disabled/>
+          <a-input
+              size="small"
+              style="width: 140px"
+              :value="displayShortcuts.translateSelection"
+              :placeholder="recordingName === 'translateSelection' ? '请按下快捷键...' : '点击录制快捷键'"
+              :class="{ recording: recordingName === 'translateSelection' }"
+              @focus="startRecording('translateSelection', $event)"
+              @blur="stopRecording"
+              readonly>
+            <template #suffix>
+              <CloseCircleFilled v-if="displayShortcuts.translateSelection && recordingName === 'translateSelection'"
+                                 class="clear-icon"
+                                 style="font-size: 10px"
+                                 @mousedown.prevent="clearShortcut('translateSelection')"/>
+            </template>
+          </a-input>
         </div>
       </a-card>
     </div>
@@ -85,11 +100,12 @@ const appItems = [
 ];
 
 // 全局快捷键名集合，用于区分写入哪个 store
-const GLOBAL_NAMES = new Set(["inputTranslate"]);
+const GLOBAL_NAMES = new Set(["inputTranslate", "translateSelection"]);
 
 const displayShortcuts = computed(() => {
   const result = {};
   result.inputTranslate = toDisplay(store.shortcuts.inputTranslate);
+  result.translateSelection = toDisplay(store.shortcuts.translateSelection);
   for (const {name} of appItems) {
     result[name] = toDisplay(appStore.shortcuts[name]);
   }
