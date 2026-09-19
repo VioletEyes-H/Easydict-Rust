@@ -53,7 +53,7 @@ pub fn run() {
                         tauri::WebviewUrl::App("/permission".into())
                     )
                     .title("需要辅助功能权限")
-                    .inner_size(400.0, 180.0)
+                    .inner_size(400.0, 200.0)
                     .resizable(false)
                     .decorations(true)
                     .center()
