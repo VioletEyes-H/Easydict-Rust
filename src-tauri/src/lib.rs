@@ -43,23 +43,12 @@ pub fn run() {
         .setup(|app| {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-            // macOS：未授权辅助功能权限时，创建一个独立的提示窗口
+            // 初始化辅助功能授权的全局状态；未授权时弹出提示窗口
+            let initially_granted = selection::ensure_accessibility_permission().unwrap_or(false);
+            app.manage(selection::AccessibilityState::new(initially_granted));
             #[cfg(target_os = "macos")]
-            {
-                if !unsafe { selection::ax_permission::AXIsProcessTrusted() } {
-                    let _ = tauri::WebviewWindowBuilder::new(
-                        app,
-                        "permission",
-                        tauri::WebviewUrl::App("/permission".into())
-                    )
-                    .title("需要辅助功能权限")
-                    .inner_size(400.0, 200.0)
-                    .resizable(false)
-                    .decorations(true)
-                    .center()
-                    .focused(true)
-                    .build();
-                }
+            if !initially_granted {
+                selection::show_permission_window(app.handle());
             }
 
             let show_item = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;

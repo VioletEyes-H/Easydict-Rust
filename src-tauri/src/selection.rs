@@ -1,8 +1,39 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::Manager;
+use tauri::{Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tracing::{info, warn};
+
+/// 权限缺失时返回给前端的统一错误文案（两处拒绝路径共用）
+const PERMISSION_DENIED_MSG: &str = "缺少辅助功能权限，已弹出授权提示";
+
+// ============================================================================
+// 辅助功能权限全局状态（全局变量）
+// ============================================================================
+/// 记录辅助功能授权状态的全局变量。
+/// - `granted == true`：已授权，`translate_selection` 不再重复询问系统，也不弹提示窗口
+/// - `granted == false`：每次触发时重新向系统确认（用户可能已在系统设置中授权），
+///   确认仍未授权则弹出提示窗口
+pub struct AccessibilityState {
+    granted: AtomicBool,
+}
+
+impl AccessibilityState {
+    pub fn new(granted: bool) -> Self {
+        Self {
+            granted: AtomicBool::new(granted),
+        }
+    }
+
+    pub fn is_granted(&self) -> bool {
+        self.granted.load(Ordering::Relaxed)
+    }
+
+    pub fn set_granted(&self, granted: bool) {
+        self.granted.store(granted, Ordering::Relaxed);
+    }
+}
 
 // ============================================================================
 // 辅助功能权限（macOS）
@@ -35,7 +66,7 @@ pub fn ensure_accessibility_permission() -> Result<bool, String> {
 
 // ============================================================================
 // macOS 原生 Accessibility API —— 直接读取选中文本（不经过剪贴板）
-// 保留作为可选方案，目前 translate_selection 中不再优先调用。
+// 作为 translate_selection 的首选方案；读不到时回退到剪贴板方案。
 // ============================================================================
 #[cfg(target_os = "macos")]
 mod ax_native {
@@ -99,9 +130,8 @@ mod ax_native {
     }
 }
 
-/// 通过 AX API 读取选中文本（保留，但当前 translate_selection 中不再优先调用）
+/// 通过 AX API 读取选中文本（translate_selection 首选方案）
 #[cfg(target_os = "macos")]
-#[allow(dead_code)]
 fn get_selected_text_ax() -> Result<String, String> {
     use ax_native::*;
 
@@ -128,7 +158,11 @@ fn get_selected_text_ax() -> Result<String, String> {
         CFRelease(attr_selected);
         CFRelease(focused);
 
-        if result != K_AX_ERROR_SUCCESS || selected.is_null() {
+        // 出错时不读取/释放 selected：AX API 失败时其值无保证，可能是非法指针
+        if result != K_AX_ERROR_SUCCESS {
+            return Err("无法读取选中文本属性".to_string());
+        }
+        if selected.is_null() {
             return Err("目标应用未暴露选中文本".to_string());
         }
 
@@ -161,17 +195,16 @@ where
 // 模拟复制（macOS 用 CGEvent）
 // ============================================================================
 #[cfg(target_os = "macos")]
-fn simulate_copy() -> Result<(), String> {
+fn simulate_copy(app: &tauri::AppHandle, state: &AccessibilityState) -> Result<(), String> {
     use objc2_core_graphics::{
-        CGEvent, CGEventSource, CGEventSourceStateID, CGEventTapLocation, CGKeyCode,
+        CGEvent, CGEventFlags, CGEventSource, CGEventSourceStateID, CGEventTapLocation, CGKeyCode,
     };
 
-    // 检查辅助功能权限（不自动打开系统设置，仅返回错误）
+    // 兜底检查：全局状态为已授权但运行中权限被撤销时，回写状态并弹出授权提示窗口
     if !unsafe { ax_permission::AXIsProcessTrusted() } {
-        return Err(
-            "缺少辅助功能权限：请在「系统设置 → 隐私与安全性 → 辅助功能」授权本应用后重试"
-                .to_string(),
-        );
+        state.set_granted(false);
+        show_permission_window(app);
+        return Err(PERMISSION_DENIED_MSG.to_string());
     }
 
     const KEYCODE_COMMAND: CGKeyCode = 0x37;
@@ -185,14 +218,18 @@ fn simulate_copy() -> Result<(), String> {
     CGEvent::post(CGEventTapLocation::SessionEventTap, Some(&cmd_down));
 
     // 延迟确保 Command 被系统识别为修饰键
-    thread::sleep(Duration::from_millis(5));
+    thread::sleep(Duration::from_millis(15));
 
+    // C 键事件需自带 Command 标志：部分应用（如 Sublime）只读事件 flags，
+    // 不跟踪修饰键状态，缺了会被当成普通字符输入
     let c_down = CGEvent::new_keyboard_event(Some(&source), KEYCODE_C, true)
         .ok_or_else(|| "创建 C 按下事件失败".to_string())?;
+    CGEvent::set_flags(Some(&c_down), CGEventFlags::MaskCommand);
     CGEvent::post(CGEventTapLocation::SessionEventTap, Some(&c_down));
 
     let c_up = CGEvent::new_keyboard_event(Some(&source), KEYCODE_C, false)
         .ok_or_else(|| "创建 C 抬起事件失败".to_string())?;
+    CGEvent::set_flags(Some(&c_up), CGEventFlags::MaskCommand);
     CGEvent::post(CGEventTapLocation::SessionEventTap, Some(&c_up));
 
     let cmd_up = CGEvent::new_keyboard_event(Some(&source), KEYCODE_COMMAND, false)
@@ -232,22 +269,93 @@ fn show_and_focus_main(app: &tauri::AppHandle) {
     }
 }
 
+/// 显示（或创建）辅助功能授权提示窗口。
+/// 已存在则前置显示，不存在则新建，供启动检查和 `translate_selection` 拒绝时复用。
+/// 创建失败（如并发下 label 已被其他调用占用）时退化为前置显示，故不返回错误。
+pub fn show_permission_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("permission") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+    match tauri::WebviewWindowBuilder::new(
+        app,
+        "permission",
+        tauri::WebviewUrl::App("/permission".into()),
+    )
+    .title("需要辅助功能权限")
+    .inner_size(400.0, 200.0)
+    .resizable(false)
+    .decorations(true)
+    .center()
+    .focused(true)
+    .build()
+    {
+        Ok(_) => {}
+        Err(_) => {
+            // 并发触发时窗口可能已被另一个调用创建，退化为前置显示
+            if let Some(window) = app.get_webview_window("permission") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            } else {
+                warn!("辅助功能提示窗口创建失败且窗口不存在");
+            }
+        }
+    }
+}
+
 // ============================================================================
 // Tauri Commands
 // ============================================================================
 
-/// 供前端调用：检查辅助功能权限。
+/// 供前端调用：检查辅助功能权限，并同步全局状态。
+/// 当前前端未调用，保留给设置页展示授权状态等场景使用。
 #[tauri::command]
-pub fn check_accessibility_permission() -> Result<bool, String> {
-    ensure_accessibility_permission()
+pub fn check_accessibility_permission(
+    state: State<AccessibilityState>,
+) -> Result<bool, String> {
+    let granted = ensure_accessibility_permission()?;
+    state.set_granted(granted);
+    Ok(granted)
 }
 
 /// 划词翻译主入口：剪贴板方案（macOS/Win/Linux 通用）
 #[tauri::command]
-pub async fn translate_selection(app: tauri::AppHandle) -> Result<String, String> {
-    let original = app.clipboard().read_text().unwrap_or_default();
-    info!("original=>",);
+pub async fn translate_selection(
+    app: tauri::AppHandle,
+    state: State<'_, AccessibilityState>,
+) -> Result<String, String> {
+    if !state.is_granted() {
+        // 用户可能已在系统设置中完成授权，每次触发时向系统重新确认并回写全局变量
+        let granted = ensure_accessibility_permission()?;
+        state.set_granted(granted);
+        if !granted {
+            show_permission_window(&app);
+            return Err(PERMISSION_DENIED_MSG.to_string());
+        }
+    }
 
+    // macOS：优先用 AX API 直接读取选中文本，不经过剪贴板，也不打扰目标应用
+    #[cfg(target_os = "macos")]
+    {
+        match get_selected_text_ax() {
+            Ok(text) if !text.trim().is_empty() => {
+                info!("selected(ax)=>{}", text);
+                show_and_focus_main(&app);
+                return Ok(text);
+            }
+            Ok(_) => {}
+            Err(e) => info!("ax 读取选中文本失败，回退剪贴板方案: {}", e),
+        }
+    }
+
+    let original = app.clipboard().read_text().unwrap_or_default();
+    info!("original=>{}", original);
+
+    // macOS 的 simulate_copy 需要 app/state 做权限兜底；其他平台用 enigo 版本
+    #[cfg(target_os = "macos")]
+    simulate_copy(&app, &state)?;
+    #[cfg(not(target_os = "macos"))]
     simulate_copy()?;
 
     let selected = poll_changed(
@@ -256,7 +364,7 @@ pub async fn translate_selection(app: tauri::AppHandle) -> Result<String, String
         Duration::from_millis(200),
         Duration::from_millis(5),
     );
-    info!("selected=>",);
+    info!("selected=>{}", selected);
 
     // 恢复原始剪贴板
     if !original.is_empty() {
